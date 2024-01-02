@@ -4,17 +4,16 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { ZodError } from "zod";
 
-import { prisma } from "../../script";
+import { prisma } from "../../prisma";
 import { transporter } from "../../../src/utils/nodemailer";
 import {
   TeamMemberRequestType,
   teamMemberRequestSchema,
 } from "./members.schema";
+import { createJWToken } from "../../utils/createJWToken";
+import { bigIntToStringReplacer } from "../../utils/replacer";
 
-export const registerMember = async (
-  req: Request<{}, {}, TeamMemberRequestType>,
-  res: Response
-) => {
+export const registerMember = async (req: Request, res: Response) => {
   try {
     teamMemberRequestSchema.parse(req.body);
     const { email, password } = req.body;
@@ -121,4 +120,114 @@ export const activateMember = async (req: Request, res: Response) => {
       .status(404)
       .send("Something went wrong. Contact support to get more information");
   }
+};
+
+export const loginMember = async (
+  req: Request<TeamMemberRequestType>,
+  res: Response
+) => {
+  const { email, password } = req.body;
+
+  try {
+    const userToLogin = await prisma.team_member.findUnique({
+      where: {
+        email: email,
+      },
+    });
+
+    if (!userToLogin) {
+      return res.status(404).send({
+        message: "User doesn't exist. Please create account first",
+      });
+    }
+
+    const isPasswordTheSame = await bcrypt.compare(
+      password,
+      userToLogin.password
+    );
+
+    if (!isPasswordTheSame) {
+      return res
+        .status(401)
+        .send({ message: "Incorrect password. Please try again" });
+    }
+
+    const token = createJWToken({
+      id: Number(userToLogin.team_member_id),
+      email: userToLogin.email,
+    });
+
+    res.cookie("accessToken", token, { httpOnly: false, maxAge: 3600000 * 24 });
+
+    return res.status(201).send({
+      isAuth: true,
+      result: {
+        id: parseInt(userToLogin.team_member_id.toString()),
+        email: userToLogin.email,
+      },
+    });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return res.status(409).send(error.flatten());
+    }
+
+    if (error instanceof PrismaClientKnownRequestError) {
+      return res.status(409).send(error.message);
+    }
+
+    if (error instanceof Error) {
+      return res.status(404).send(error.message);
+    }
+
+    return res
+      .status(404)
+      .send({ message: "Some error happened and nobody knows what happened" });
+  }
+};
+
+export const getAllMembers = async (req: Request, res: Response) => {
+  const members = await prisma.team_member.findMany({
+    select: {
+      email: true,
+    },
+  });
+
+  if (!members) {
+    return res.status(404).send("There are no users in our database. Sorry.");
+  }
+
+  return res.status(200).send(members);
+};
+
+export const authenticateMember = async (req: Request, res: Response) => {
+  try {
+    if (!req.member) {
+      throw new Error(
+        "Member details not provided. You will be logged out automatically. Login once again."
+      );
+    }
+    const token = res.getHeader("Authorization");
+    console.log("authenticateMember - token: ", token);
+    const user = await prisma.team_member.findUnique({
+      where: {
+        team_member_id: req.member.id,
+      },
+      select: {
+        team_member_id: true,
+        created_at: true,
+        upadted_at: true,
+        email: true,
+      },
+    });
+
+    return res.status(200).send(
+      JSON.stringify(
+        {
+          isAuth: true,
+          result: user,
+        },
+        bigIntToStringReplacer
+      )
+    );
+  } catch (error) {}
 };
