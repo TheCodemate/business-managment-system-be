@@ -11,9 +11,9 @@ import {
   teamMemberRequestSchema,
 } from "./members.schema";
 import { createJWToken } from "../../utils/createJWToken";
-import { bigIntToStringReplacer } from "../../utils/replacer";
 
 export const registerMember = async (req: Request, res: Response) => {
+  console.log("registration start!");
   try {
     teamMemberRequestSchema.parse(req.body);
     const { email, password } = req.body;
@@ -44,17 +44,14 @@ export const registerMember = async (req: Request, res: Response) => {
         html: `<p>Hello, click activation link <a href=${activationLink}>here</a> to complete register process</p>`, // html body
       });
 
-      return res
-        .status(201)
-        .send(
-          "The member has been created successfully. Activation link has been sent to your email"
-        );
+      return res.status(201).send({
+        message:
+          "The member was created successfully. Activation link has been sent to your email. You'll be redirected back to login page.",
+      });
     }
 
     const isActivateLinkExpired =
       Number(userToRegister.activate_expire_date) < new Date().getTime();
-
-    console.log("isActivateLinkExpired: ", isActivateLinkExpired);
 
     if (!userToRegister.active && isActivateLinkExpired) {
       return res
@@ -63,13 +60,7 @@ export const registerMember = async (req: Request, res: Response) => {
           "It seems your activation link has expired. Please register once again"
         );
     }
-
-    return res
-      .status(405)
-      .send(
-        "This email already exists in the database and is currently waiting for activation. Go to your email and click activation link"
-      );
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof ZodError) {
       return res.status(409).send(error.flatten());
     }
@@ -78,7 +69,13 @@ export const registerMember = async (req: Request, res: Response) => {
       return res.status(409).send(error);
     }
 
-    throw new Error(error);
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+
+    throw new Error(
+      "Unknown error occurred while registering account. Try again later"
+    );
   }
 };
 
@@ -152,16 +149,24 @@ export const loginMember = async (
         .send({ message: "Incorrect password. Please try again" });
     }
 
-    const token = createJWToken({
-      id: Number(userToLogin.team_member_id),
-      email: userToLogin.email,
-    });
+    const token = createJWToken(
+      {
+        id: Number(userToLogin.team_member_id),
+        email: userToLogin.email,
+      },
+      process.env.JWT_SECRET
+    );
 
-    res.cookie("accessToken", token, { httpOnly: false, maxAge: 3600000 * 24 });
+    res.cookie("authToken", token, {
+      httpOnly: true,
+      domain: "localhost",
+      secure: false,
+      maxAge: 3600000,
+    });
 
     return res.status(201).send({
       isAuth: true,
-      result: {
+      user: {
         id: parseInt(userToLogin.team_member_id.toString()),
         email: userToLogin.email,
       },
@@ -185,49 +190,41 @@ export const loginMember = async (
   }
 };
 
-export const getAllMembers = async (req: Request, res: Response) => {
-  const members = await prisma.team_member.findMany({
-    select: {
-      email: true,
-    },
-  });
-
-  if (!members) {
-    return res.status(404).send("There are no users in our database. Sorry.");
-  }
-
-  return res.status(200).send(members);
-};
-
 export const authenticateMember = async (req: Request, res: Response) => {
   try {
     if (!req.member) {
-      throw new Error(
-        "Member details not provided. You will be logged out automatically. Login once again."
-      );
+      return res.send(403).send("No user found. Check the credentials ");
     }
-    const token = res.getHeader("Authorization");
-    console.log("authenticateMember - token: ", token);
-    const user = await prisma.team_member.findUnique({
-      where: {
-        team_member_id: req.member.id,
-      },
-      select: {
-        team_member_id: true,
-        created_at: true,
-        upadted_at: true,
-        email: true,
+
+    return res.status(200).send({
+      isAuth: true,
+      user: {
+        id: req.member.id,
+        email: req.member.email,
       },
     });
+  } catch (error) {
+    if (error instanceof PrismaClientKnownRequestError) {
+      return res.status(409).send(error.message);
+    }
 
-    return res.status(200).send(
-      JSON.stringify(
-        {
-          isAuth: true,
-          result: user,
-        },
-        bigIntToStringReplacer
-      )
-    );
-  } catch (error) {}
+    if (error instanceof Error) {
+      return res.status(404).send(error.message);
+    }
+
+    return res.status(404).send({
+      message:
+        "Could not get requested resources. Some unknown error has occured",
+    });
+  }
+};
+
+export const logoutMember = async (req: Request, res: Response) => {
+  console.log("server info - logging out ");
+  res.cookie("authToken", "", { httpOnly: true });
+
+  return res
+    .status(201)
+    .clearCookie("authToken")
+    .send({ isAuth: false, user: null });
 };

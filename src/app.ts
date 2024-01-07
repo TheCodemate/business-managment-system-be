@@ -13,6 +13,7 @@ app.use(helmet());
 app.use(express.json());
 app.use(cookieParser());
 app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
   res.setHeader(
     "Access-Control-Allow-Methods",
@@ -22,7 +23,6 @@ app.use((req, res, next) => {
     "Access-Control-Allow-Headers",
     "X-Requested-With,content-type"
   );
-
   next();
 });
 
