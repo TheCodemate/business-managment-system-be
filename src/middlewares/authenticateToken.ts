@@ -20,7 +20,6 @@ export const authenticateToken = (
   next: NextFunction
 ) => {
   const accessTokenCookie = req.cookies.authToken;
-
   if (!accessTokenCookie) {
     return res.status(403).send({
       message:

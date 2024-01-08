@@ -13,7 +13,6 @@ import {
 import { createJWToken } from "../../utils/createJWToken";
 
 export const registerMember = async (req: Request, res: Response) => {
-  console.log("registration start!");
   try {
     teamMemberRequestSchema.parse(req.body);
     const { email, password } = req.body;
@@ -220,7 +219,6 @@ export const authenticateMember = async (req: Request, res: Response) => {
 };
 
 export const logoutMember = async (req: Request, res: Response) => {
-  console.log("server info - logging out ");
   res.cookie("authToken", "", { httpOnly: true });
 
   return res
