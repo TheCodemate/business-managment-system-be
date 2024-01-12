@@ -213,16 +213,115 @@ export const authenticateMember = async (req: Request, res: Response) => {
 
     return res.status(404).send({
       message:
-        "Could not get requested resources. Some unknown error has occured",
+        "Could not get requested resources. Some unknown error has occurred",
     });
   }
 };
 
 export const logoutMember = async (req: Request, res: Response) => {
-  res.cookie("authToken", "", { httpOnly: true });
+  try {
+    res.clearCookie("authToken");
+    return res
+      .status(201)
+      .clearCookie("authToken")
+      .send({ isAuth: false, user: null });
+  } catch (error) {
+    if (error instanceof Error) {
+      return res
+        .status(404)
+        .send({ message: "Could not log out. Something went wrong" });
+    }
+    throw new Error();
+  }
+};
 
-  return res
-    .status(201)
-    .clearCookie("authToken")
-    .send({ isAuth: false, user: null });
+export const resetPasswordRequest = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    const resetPassToken = crypto.randomBytes(48).toString("hex");
+    const hashedResetToken = await bcrypt.hash(resetPassToken, 10);
+    const resetLink = `http://localhost:5173/reset-password/${hashedResetToken}`;
+
+    const userRequestingPasswordReset = await prisma.team_member.findUnique({
+      where: {
+        email: email,
+      },
+    });
+
+    if (!userRequestingPasswordReset) {
+      throw new Error("User does not exist");
+    }
+
+    await prisma.reset_tokens.create({
+      data: {
+        token: hashedResetToken,
+        token_expire_date: new Date().getTime() + 24 * 3600 * 1000,
+        team_member_id: userRequestingPasswordReset.team_member_id,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `Customer Register Backend" <${process.env.NODEMAILER_FROM}>`,
+      to: email,
+      subject: "CRA - reset your password!",
+      text: "Reset link",
+      html: `<p>Hello, click reset link <a href=${resetLink}>here</a> to complete password reset process</p>`, // html body
+    });
+
+    return res.status(201).send({
+      message: "Reset link has been sent to given email. ",
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      return;
+    }
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+
+    const resetToken = await prisma.reset_tokens.findUnique({
+      where: {
+        token,
+      },
+    });
+
+    if (!resetToken) {
+      return res.status(404).send({
+        message:
+          "Could not reset password. Try requesting reset password once again",
+      });
+    }
+
+    const userRequestingPasswordReset = await prisma.team_member.findUnique({
+      where: {
+        team_member_id: resetToken?.team_member_id,
+      },
+    });
+
+    if (!userRequestingPasswordReset) {
+      return res.status(404).send({
+        message:
+          "There is no such a user. You cannot reset password of the user that does not exist. Register first.",
+      });
+    }
+
+    return res.status(201).send({ message: "Password was reset. Login now" });
+  } catch (error) {
+    if (error instanceof PrismaClientKnownRequestError) {
+      return res.status(409).send(error.message);
+    }
+
+    if (error instanceof Error) {
+      return res.status(404).send(error.message);
+    }
+
+    return res.status(404).send({
+      message:
+        "Could not get requested resources. Some unknown error has occurred",
+    });
+  }
 };
