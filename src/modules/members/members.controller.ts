@@ -157,9 +157,10 @@ export const loginMember = async (
     );
 
     res.cookie("authToken", token, {
-      httpOnly: true,
+      // httpOnly: true,
       domain: "localhost",
       secure: false,
+      sameSite: "none",
       maxAge: 3600000,
     });
 
@@ -239,9 +240,8 @@ export const resetPasswordRequest = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
 
-    const resetPassToken = crypto.randomBytes(48).toString("hex");
-    const hashedResetToken = await bcrypt.hash(resetPassToken, 10);
-    const resetLink = `http://localhost:5173/reset-password/${hashedResetToken}`;
+    const resetPassToken = crypto.createHash("sha512").digest("hex");
+    const resetLink = `http://localhost:5173/reset-password/${resetPassToken}`;
 
     const userRequestingPasswordReset = await prisma.team_member.findUnique({
       where: {
@@ -253,9 +253,22 @@ export const resetPasswordRequest = async (req: Request, res: Response) => {
       throw new Error("User does not exist");
     }
 
+    const resetTokenExists = await prisma.reset_tokens.findUnique({
+      where: {
+        team_member_id: userRequestingPasswordReset.team_member_id,
+      },
+    });
+
+    if (resetTokenExists) {
+      return res.status(409).send({
+        message:
+          "Reset link has been sent to your email already. Please check once again. Make sure it is not in the spam box. If you cannot find your reset email use send reset link again method.",
+      });
+    }
+
     await prisma.reset_tokens.create({
       data: {
-        token: hashedResetToken,
+        token: resetPassToken,
         token_expire_date: new Date().getTime() + 24 * 3600 * 1000,
         team_member_id: userRequestingPasswordReset.team_member_id,
       },
@@ -273,32 +286,42 @@ export const resetPasswordRequest = async (req: Request, res: Response) => {
       message: "Reset link has been sent to given email. ",
     });
   } catch (error) {
-    if (error instanceof Error) {
-      return;
+    if (error instanceof PrismaClientKnownRequestError) {
+      return res.status(409).send(error.message);
     }
+
+    if (error instanceof Error) {
+      return res.status(404).send(error.message);
+    }
+
+    return res.status(404).send({
+      message:
+        "Could not get requested resources. Some unknown error has occurred",
+    });
   }
 };
 
 export const resetPassword = async (req: Request, res: Response) => {
   try {
-    const { token } = req.params;
+    const { password, resetToken } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const resetToken = await prisma.reset_tokens.findUnique({
+    const token = await prisma.reset_tokens.findUnique({
       where: {
-        token,
+        token: resetToken,
       },
     });
 
-    if (!resetToken) {
+    if (!token) {
       return res.status(404).send({
         message:
-          "Could not reset password. Try requesting reset password once again",
+          "Reset password token has not been generated yet. Please send password reset request once again.",
       });
     }
 
     const userRequestingPasswordReset = await prisma.team_member.findUnique({
       where: {
-        team_member_id: resetToken?.team_member_id,
+        team_member_id: token?.team_member_id,
       },
     });
 
@@ -308,6 +331,21 @@ export const resetPassword = async (req: Request, res: Response) => {
           "There is no such a user. You cannot reset password of the user that does not exist. Register first.",
       });
     }
+
+    const resetPassword = await prisma.team_member.update({
+      where: {
+        team_member_id: userRequestingPasswordReset.team_member_id,
+      },
+      data: {
+        password: hashedPassword,
+      },
+    });
+
+    await prisma.reset_tokens.delete({
+      where: {
+        team_member_id: resetPassword.team_member_id,
+      },
+    });
 
     return res.status(201).send({ message: "Password was reset. Login now" });
   } catch (error) {
