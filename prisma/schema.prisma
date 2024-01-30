@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model contact_person {
+  contact_person_id String  @id @default(uuid())
+  first_name        String
+  last_name         String
+  phone_number      String?
+  email             String
+
+  customer    customer @relation(fields: [customer_id], references: [customer_id])
+  customer_id String   @unique
+}
+
+model address {
+  address_id       String  @id @default(uuid())
+  street           String
+  street_number    String
+  apartment_number String?
+  city             String
+  postal_code      String
+  post             String
+  country          String
+
+  customer_id String   @unique
+  customer    customer @relation(fields: [customer_id], references: [customer_id])
+}
+
+model customer {
+  customer_id    String          @id @default(uuid())
+  company_name   String          @db.VarChar(255)
+  short_name     String          @db.VarChar(50)
+  vat_no         String          @unique @db.VarChar(12)
+  address        address?
+  contact_person contact_person?
+  note           String?
+  payment_term   String
+  payment_type   String
+  is_company     Boolean
+}
+model user_account {
+  user_id                    String         @id @default(uuid())
+  email                      String         @unique @db.VarChar(50)
+  password                   String         @db.VarChar(255)
+  active                     Boolean        @default(false)
+  activate_token             String         @unique @db.VarChar(255)
+  activate_token_expire_date BigInt
+  created_at                 DateTime       @default(now()) @db.Timestamp(6)
+  updated_at                 DateTime       @default(now()) @db.Timestamp(6)
+  resetTokens                ResetToken[]
+}
+
+model ResetToken {
+  reset_token_id    String        @id @default(uuid())
+  token             String        @unique @db.VarChar(255)
+  token_expire_date BigInt
+  user_id           String        @unique
+  user              user_account? @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
+}
