@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import { membersRouter } from "./modules/members/members.router";
 import { customersRouter } from "./modules/customers/customers.router";
+import { shoppingCartRouter } from "./modules/shoppingCart/shoppingCart.router";
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use((req, res, next) => {
 
 app.use("/api/customers", customersRouter);
 app.use("/api/members", membersRouter);
+app.use("/api/shopping-cart", shoppingCartRouter);
 
 app.listen(port, () => {
   console.log(`⚡️[server]: Server is running at http://localhost:${port}`);
