@@ -3,6 +3,7 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import { membersRouter } from "./modules/members/members.router";
+import { customersRouter } from "./modules/customers/customers.router";
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use("/api/customers", customersRouter);
 app.use("/api/members", membersRouter);
 
 app.listen(port, () => {

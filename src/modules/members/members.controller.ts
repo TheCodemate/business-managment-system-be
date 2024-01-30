@@ -19,19 +19,19 @@ export const registerMember = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const activationToken = crypto.randomBytes(48).toString("hex");
     const activationLink = `http://localhost:${process.env.DEV_PORT}/api/members/activate/${activationToken}`;
-    const userToRegister = await prisma.team_member.findUnique({
+    const userToRegister = await prisma.user_account.findUnique({
       where: {
         email: email,
       },
     });
 
     if (!userToRegister) {
-      await prisma.team_member.create({
+      await prisma.user_account.create({
         data: {
           email: email,
           password: hashedPassword,
-          activate_expire_date: new Date().getTime() + 24 * 3600 * 1000,
-          active_token: activationToken,
+          activate_token_expire_date: new Date().getTime() + 24 * 3600 * 1000,
+          activate_token: activationToken,
         },
       });
 
@@ -50,7 +50,7 @@ export const registerMember = async (req: Request, res: Response) => {
     }
 
     const isActivateLinkExpired =
-      Number(userToRegister.activate_expire_date) < new Date().getTime();
+      Number(userToRegister.activate_token_expire_date) < new Date().getTime();
 
     if (!userToRegister.active && isActivateLinkExpired) {
       return res
@@ -81,9 +81,9 @@ export const registerMember = async (req: Request, res: Response) => {
 export const activateMember = async (req: Request, res: Response) => {
   try {
     const { activationToken } = req.params;
-    const userToActivate = await prisma.team_member.findUnique({
+    const userToActivate = await prisma.user_account.findUnique({
       where: {
-        active_token: activationToken,
+        activate_token: activationToken,
       },
     });
 
@@ -95,9 +95,9 @@ export const activateMember = async (req: Request, res: Response) => {
         );
     }
 
-    await prisma.team_member.update({
+    await prisma.user_account.update({
       where: {
-        active_token: activationToken,
+        activate_token: activationToken,
       },
       data: {
         active: true,
@@ -125,7 +125,7 @@ export const loginMember = async (
   const { email, password } = req.body;
 
   try {
-    const userToLogin = await prisma.team_member.findUnique({
+    const userToLogin = await prisma.user_account.findUnique({
       where: {
         email: email,
       },
@@ -148,26 +148,23 @@ export const loginMember = async (
         .send({ message: "Incorrect password. Please try again" });
     }
 
-    const token = createJWToken(
-      {
-        id: Number(userToLogin.team_member_id),
-        email: userToLogin.email,
-      },
-      process.env.JWT_SECRET
-    );
+    const token = createJWToken({
+      user_id: userToLogin.user_id,
+      email: userToLogin.email,
+    });
 
     res.cookie("authToken", token, {
-      // httpOnly: true,
-      domain: "localhost",
-      secure: false,
-      sameSite: "none",
+      httpOnly: true,
+      // domain: "localhost",
+      // secure: false,
+      // sameSite: "none",
       maxAge: 3600000,
     });
 
     return res.status(201).send({
       isAuth: true,
       user: {
-        id: parseInt(userToLogin.team_member_id.toString()),
+        id: userToLogin.user_id,
         email: userToLogin.email,
       },
     });
@@ -191,6 +188,7 @@ export const loginMember = async (
 };
 
 export const authenticateMember = async (req: Request, res: Response) => {
+  console.log("authenticateMember - authenticating starts...");
   try {
     if (!req.member) {
       return res.send(403).send("No user found. Check the credentials ");
@@ -199,7 +197,7 @@ export const authenticateMember = async (req: Request, res: Response) => {
     return res.status(200).send({
       isAuth: true,
       user: {
-        id: req.member.id,
+        id: req.member.user_id,
         email: req.member.email,
       },
     });
@@ -243,7 +241,7 @@ export const resetPasswordRequest = async (req: Request, res: Response) => {
     const resetPassToken = crypto.createHash("sha512").digest("hex");
     const resetLink = `http://localhost:5173/reset-password/${resetPassToken}`;
 
-    const userRequestingPasswordReset = await prisma.team_member.findUnique({
+    const userRequestingPasswordReset = await prisma.user_account.findUnique({
       where: {
         email: email,
       },
@@ -253,9 +251,9 @@ export const resetPasswordRequest = async (req: Request, res: Response) => {
       throw new Error("User does not exist");
     }
 
-    const resetTokenExists = await prisma.reset_tokens.findUnique({
+    const resetTokenExists = await prisma.resetToken.findUnique({
       where: {
-        team_member_id: userRequestingPasswordReset.team_member_id,
+        user_id: userRequestingPasswordReset.user_id,
       },
     });
 
@@ -266,11 +264,11 @@ export const resetPasswordRequest = async (req: Request, res: Response) => {
       });
     }
 
-    await prisma.reset_tokens.create({
+    await prisma.resetToken.create({
       data: {
         token: resetPassToken,
         token_expire_date: new Date().getTime() + 24 * 3600 * 1000,
-        team_member_id: userRequestingPasswordReset.team_member_id,
+        user_id: userRequestingPasswordReset.user_id,
       },
     });
 
@@ -306,7 +304,7 @@ export const resetPassword = async (req: Request, res: Response) => {
     const { password, resetToken } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const token = await prisma.reset_tokens.findUnique({
+    const token = await prisma.resetToken.findUnique({
       where: {
         token: resetToken,
       },
@@ -319,9 +317,9 @@ export const resetPassword = async (req: Request, res: Response) => {
       });
     }
 
-    const userRequestingPasswordReset = await prisma.team_member.findUnique({
+    const userRequestingPasswordReset = await prisma.user_account.findUnique({
       where: {
-        team_member_id: token?.team_member_id,
+        user_id: token?.user_id,
       },
     });
 
@@ -332,18 +330,18 @@ export const resetPassword = async (req: Request, res: Response) => {
       });
     }
 
-    const resetPassword = await prisma.team_member.update({
+    const resetPassword = await prisma.user_account.update({
       where: {
-        team_member_id: userRequestingPasswordReset.team_member_id,
+        user_id: userRequestingPasswordReset.user_id,
       },
       data: {
         password: hashedPassword,
       },
     });
 
-    await prisma.reset_tokens.delete({
+    await prisma.resetToken.delete({
       where: {
-        team_member_id: resetPassword.team_member_id,
+        user_id: resetPassword.user_id,
       },
     });
 

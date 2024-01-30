@@ -3,12 +3,15 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-export const createJWToken = (
-  { id, email }: { id: number; email: string },
-  secretKey: string = "some random secret just in case the one in .env has not been set up"
-) => {
+export const createJWToken = ({
+  user_id,
+  email,
+}: {
+  user_id: string;
+  email: string;
+}) => {
   return jwt.sign(
-    { id, email },
+    { user_id, email },
     process.env.JWT_SECRET ||
       "some random secret just in case the one in .env has not been set up"
   );
