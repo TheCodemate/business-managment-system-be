@@ -8,6 +8,15 @@ export const addToCart = async (req: Request, res: Response) => {
   try {
     const userId = req.member?.user_id;
     const cartItem: CartItemType = req.body.cartItem;
+
+    console.log("cartItem: ", cartItem);
+
+    if (!cartItemSchema.parse(cartItem)) {
+      return res
+        .status(422)
+        .send({ message: "Unrecognized product. Request unsuccessful" });
+    }
+
     const shoppingCart = await prisma.shopping_cart.upsert({
       where: {
         user_id: userId,
@@ -17,12 +26,6 @@ export const addToCart = async (req: Request, res: Response) => {
         user_id: userId,
       },
     });
-
-    if (!cartItemSchema.safeParse(cartItem).success) {
-      return res
-        .status(404)
-        .send({ message: "Unrecognized product. Request unsuccessful" });
-    }
 
     const currentCartItem = await prisma.cart_item.findUnique({
       where: {
@@ -47,6 +50,15 @@ export const addToCart = async (req: Request, res: Response) => {
         product_id: cartItem.product_id,
         shopping_cart_id: shoppingCart.shopping_cart_id,
         quantity: cartItem.quantity,
+      },
+    });
+
+    const updateProductQuantity = prisma.product.update({
+      where: { product_id: cartItem.product_id },
+      data: {
+        stock_amount: {
+          decrement: cartItem.quantity,
+        },
       },
     });
     return res.status(200).send({
