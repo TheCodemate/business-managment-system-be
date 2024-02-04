@@ -1,6 +1,6 @@
 import express from "express";
 import {
-  getShoppingCartProducts,
+  getProductsInCart,
   updateShoppingCartProduct,
   addToCart,
 } from "./shpppingCart.controller";
@@ -9,5 +9,5 @@ import { authenticateToken } from "../../middlewares/authenticateToken";
 export const shoppingCartRouter = express.Router();
 
 shoppingCartRouter.post("/", authenticateToken, addToCart);
-shoppingCartRouter.get("/", authenticateToken, getShoppingCartProducts);
+shoppingCartRouter.get("/", authenticateToken, getProductsInCart);
 shoppingCartRouter.put("/", updateShoppingCartProduct);
