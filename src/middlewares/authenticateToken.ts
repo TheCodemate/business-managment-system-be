@@ -36,12 +36,15 @@ export const authenticateToken = (
   if (!member) {
     return res
       .status(403)
-      .send({ message: "You couldnt be authorized. Login again" });
+      .send({ message: "User could not be authorized. Login again" });
   }
 
-  if (isMember(member)) {
-    req.member = member;
+  if (!isMember(member)) {
+    return res.status(401).send({ message: "Could not authenticate user" });
   }
 
+  req.member = member;
+
+  console.log("authenticateToken - end");
   next();
 };
