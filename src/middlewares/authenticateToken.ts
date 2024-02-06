@@ -45,6 +45,5 @@ export const authenticateToken = (
 
   req.member = member;
 
-  console.log("authenticateToken - end");
   next();
 };

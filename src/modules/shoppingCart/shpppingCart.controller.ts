@@ -3,11 +3,12 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../prisma";
 import { CartItemType, cartItemSchema } from "../../types";
+import { ZodError } from "zod";
 
 export const addToCart = async (req: Request, res: Response) => {
   try {
     const userId = req.member?.user_id;
-    const cartItem: CartItemType = req.body.cartItem;
+    const cartItem: CartItemType = req.body;
 
     if (!cartItemSchema.parse(cartItem)) {
       return res
@@ -69,6 +70,88 @@ export const addToCart = async (req: Request, res: Response) => {
       messaged: "Product has been added to shopping cart.",
     });
   } catch (error) {
+    if (error instanceof ZodError) {
+      return res
+        .status(422)
+        .send({ message: "Unrecognized product. Request unsuccessful" });
+    }
+    if (error instanceof PrismaClientKnownRequestError) {
+      return res.status(409).send(error.message);
+    }
+
+    if (error instanceof Error) {
+      return res.status(404).send(error.message);
+    }
+
+    return res.status(404).send({
+      message:
+        "Could not get requested resources. Some unknown error has occurred",
+    });
+  }
+};
+
+export const removeFromCart = async (req: Request, res: Response) => {
+  try {
+    const userId = req.member?.user_id;
+    const cartItem: CartItemType = req.body.cartItem;
+
+    if (!cartItemSchema.parse(cartItem)) {
+      return res
+        .status(422)
+        .send({ message: "Unrecognized product. Request unsuccessful" });
+    }
+
+    const shoppingCart = await prisma.shopping_cart.upsert({
+      where: {
+        user_id: userId,
+      },
+      update: {},
+      create: {
+        user_id: userId,
+      },
+    });
+
+    const currentCartItem = await prisma.cart_item.findUnique({
+      where: {
+        product_id: cartItem.product_id,
+        shopping_cart_id: shoppingCart.shopping_cart_id,
+      },
+    });
+
+    const product = await prisma.product.findUnique({
+      where: { product_id: cartItem.product_id },
+    });
+
+    const removeQuantity = (qaToRemove: number) => {
+      if (!currentCartItem || !product) return new Prisma.Decimal(0);
+      const currentCartItemQA = currentCartItem.quantity.toNumber();
+      const availableStock = product.stock_amount;
+
+      if (currentCartItemQA - qaToRemove < 0) {
+        return new Prisma.Decimal(currentCartItemQA - currentCartItemQA);
+      }
+      return new Prisma.Decimal(currentCartItemQA - qaToRemove);
+    };
+
+    const newCartItem = await prisma.cart_item.upsert({
+      where: {
+        product_id: cartItem.product_id,
+        shopping_cart_id: shoppingCart?.shopping_cart_id,
+      },
+      update: {
+        quantity: removeQuantity(cartItem.quantity),
+      },
+      create: {
+        product_id: cartItem.product_id,
+        shopping_cart_id: shoppingCart.shopping_cart_id,
+        quantity: cartItem.quantity,
+      },
+    });
+
+    return res.status(200).send({
+      messaged: "Product has been added to shopping cart.",
+    });
+  } catch (error) {
     if (error instanceof PrismaClientKnownRequestError) {
       return res.status(409).send(error.message);
     }
@@ -109,7 +192,42 @@ export const getProductsInCart = async (req: Request, res: Response) => {
     return res.status(200).send(shoppingCartItems);
   } catch (error) {
     if (error instanceof PrismaClientKnownRequestError) {
-      console.log("error: ", error.message);
+      return res.status(409).send(error.message);
+    }
+
+    if (error instanceof Error) {
+      return res.status(404).send(error.message);
+    }
+
+    return res.status(404).send({
+      message:
+        "Could not get requested resources. Some unknown error has occurred",
+    });
+  }
+};
+
+export const deleteFromCart = async (req: Request, res: Response) => {
+  try {
+    const userId = req.member?.user_id;
+    const cartItemId = req.body.cartItemId;
+    const shoppingCart = await prisma.shopping_cart.findUnique({
+      where: {
+        user_id: userId,
+      },
+    });
+
+    if (!shoppingCart) {
+      return res.status(404).send("Could not get shopping cart");
+    }
+    const shoppingCartItems = await prisma.cart_item.delete({
+      where: {
+        cart_item_id: cartItemId,
+      },
+    });
+
+    return res.status(200).send(shoppingCartItems);
+  } catch (error) {
+    if (error instanceof PrismaClientKnownRequestError) {
       return res.status(409).send(error.message);
     }
 

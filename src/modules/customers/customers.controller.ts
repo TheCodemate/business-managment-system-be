@@ -38,8 +38,6 @@ export const addCustomer = async (req: Request, res: Response) => {
       },
     });
 
-    console.log("addCustomer - customer: ", customer);
-
     return res.status(201).send({
       message: "Success! New customer has been added to the system",
     });
@@ -82,10 +80,6 @@ export const getCustomers = async (req: Request, res: Response) => {
     });
 
     const result = await prisma.$queryRaw`SELECT * FROM "customer"`;
-
-    console.log("result: ", result);
-
-    console.log("allCustomers: ", allCustomers);
 
     return res.status(200).send(allCustomers);
   } catch (error) {
