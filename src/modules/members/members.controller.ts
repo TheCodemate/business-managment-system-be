@@ -188,7 +188,6 @@ export const loginMember = async (
 };
 
 export const authenticateMember = async (req: Request, res: Response) => {
-  console.log("authenticateMember - authenticating starts...");
   try {
     if (!req.member) {
       return res.send(403).send("No user found. Check the credentials ");
