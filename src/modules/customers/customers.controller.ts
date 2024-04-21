@@ -14,7 +14,7 @@ export const addCustomer = async (req: Request, res: Response) => {
     const data: CustomerType = req.body.customer;
     const isCostumerAvailable = await prisma.customer.findUnique({
       where: {
-        vat_no: data.vat_no,
+        vatNo: data.vatNo,
       },
     });
 
@@ -30,9 +30,9 @@ export const addCustomer = async (req: Request, res: Response) => {
             ...data.address,
           },
         },
-        contact_person: {
+        contactPerson: {
           create: {
-            ...data.contact_person,
+            ...data.contactPeron,
           },
         },
       },
@@ -76,7 +76,7 @@ export const addCustomer = async (req: Request, res: Response) => {
 export const getCustomers = async (req: Request, res: Response) => {
   try {
     const allCustomers = await prisma.customer.findMany({
-      include: { address: true, contact_person: true },
+      include: { address: true, contactPerson: true },
     });
 
     const result = await prisma.$queryRaw`SELECT * FROM "customer"`;

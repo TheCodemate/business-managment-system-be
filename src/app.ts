@@ -6,6 +6,8 @@ import { membersRouter } from "./modules/members/members.router";
 import { customersRouter } from "./modules/customers/customers.router";
 import { shoppingCartRouter } from "./modules/shoppingCart/shoppingCart.router";
 import { productsRouter } from "./modules/products/products.router";
+import { ordersRouter } from "./modules/orders/orders.router";
+import { supportRequestRouter } from "./modules/requests/requests.router";
 
 dotenv.config();
 
@@ -33,6 +35,8 @@ app.use("/api/customers", customersRouter);
 app.use("/api/members", membersRouter);
 app.use("/api/shopping-cart", shoppingCartRouter);
 app.use("/api/products", productsRouter);
+app.use("/api/orders", ordersRouter);
+app.use("/api/support-requests", supportRequestRouter);
 
 app.listen(port, () => {
   console.log(`⚡️[server]: Server is running at http://localhost:${port}`);

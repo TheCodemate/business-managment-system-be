@@ -7,6 +7,7 @@ import {
   logoutMember,
   resetPassword,
   resetPasswordRequest,
+  getMembers,
 } from "./members.controller";
 import { authenticateToken } from "../../middlewares/authenticateToken";
 
@@ -14,6 +15,7 @@ export const membersRouter = express.Router();
 
 membersRouter.post("/login", loginMember);
 membersRouter.post("/", registerMember);
+membersRouter.get("/", getMembers);
 membersRouter.get("/", authenticateToken, authenticateMember);
 membersRouter.get("/activate/:activationToken", activateMember);
 membersRouter.get("/logoutMember", logoutMember);
