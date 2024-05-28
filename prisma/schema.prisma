@@ -7,6 +7,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// model ProductCategory {
+//   id           Int          @id @default(autoincrement())
+//   categoryName String
+//   PrdocutNew   PrdocutNew[]
+
+//   @@map("product_category")
+// }
+
 model ContactPerson {
   contactPersonId String @id @default(uuid()) @map("contact_person_id")
   firstName       String @map("first_name")
@@ -19,6 +27,17 @@ model ContactPerson {
 
   @@map("contact_person")
 }
+
+// model PrdocutNew {
+//   id                String          @id @default(uuid())
+//   description       String
+//   productCode       String          @map("product_code")
+//   collectionName    String          @map("collection_name")
+//   productCategoryId String
+//   productCategory   ProductCategory @relation(references: [id], fields: [productCategoryId])
+
+//   @@map("product_new")
+// }
 
 model Address {
   addressId       String  @id @default(uuid()) @map("address_id")
@@ -52,23 +71,49 @@ model Customer {
 }
 
 model UserAccount {
-  userId                   String                     @id @default(uuid()) @map("user_id")
-  email                    String                     @unique @db.VarChar(50)
-  password                 String                     @db.VarChar(255)
-  active                   Boolean                    @default(false)
-  activeToken              String                     @unique @map("activate_token") @db.VarChar(255)
-  activateTokenExpireDate  BigInt                     @map("activate_token_expire_date")
-  createdAt                DateTime                   @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt                DateTime                   @default(now()) @map("updated_at") @db.Timestamp(6)
-  role                     Role?                      @default(ADMIN)
+  userId                   String                       @id @default(uuid()) @map("user_id")
+  email                    String                       @unique @db.VarChar(50)
+  phone                    String?
+  firstName                String?                      @map("first_name")
+  lastName                 String?                      @map("last_name")
+  password                 String                       @db.VarChar(255)
+  active                   Boolean                      @default(false)
+  activeToken              String                       @unique @map("activate_token") @db.VarChar(255)
+  activateTokenExpireDate  BigInt                       @map("activate_token_expire_date")
+  createdAt                DateTime                     @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt                DateTime                     @default(now()) @map("updated_at") @db.Timestamp(6)
+  role                     Role?                        @default(ADMIN)
   resetTokens              ResetToken[]
   shoppingCart             ShoppingCart?
   orders                   OrderDetails[]
-  technicalRequests        TechnicalRequest[]
   requestsAssignedTo       TechnicalRequestUser[]
   technicalRequestResponse TechnicalRequestResponse[]
+  resolvedRequests         TechnicalRequestResolvedBy[]
+  createdRequests          TechnicalRequest[]
+  Offers                   Offers[]
 
   @@map("user_account")
+}
+
+model UploadedProduct {
+  uploadedProductId String      @id @default(uuid()) @map("uploaded_product_id")
+  collectionName    String      @map("collection_name")
+  productName       String      @map("product_name")
+  eanCode           String?     @map("ean_code")
+  productCode       String?     @unique @map("product_code")
+  finish            String?
+  format            String
+  weight            Decimal?
+  M2xPKG            Decimal?    @map("m2_x_pkg")
+  PCxPKG            Decimal?    @map("pc_x_pkg")
+  M2xPLT            Decimal?    @map("m2_x_plt")
+  PCxPLT            Decimal?    @map("pc_x_plt")
+  unit              String?
+  color             String
+  producer          String
+  category          String
+  Offers            Offers[]
+  OfferItem         OfferItem[]
 }
 
 model Product {
@@ -210,36 +255,58 @@ enum Role {
   REGULAR_CLIENT
 }
 
-model TechnicalRequest {
-  technicalRequestId String   @id @default(uuid()) @map("technical_request_id")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
-  additionalInfo     String?  @map("additional_info") @db.VarChar(3000)
-  productCategory    String?  @map("product_category")
-  files              String?
-  contactPerson      String   @map("contact_person")
-  contactPersonPhone String   @map("contact_person_phone")
-  contactPersonEmail String   @map("contact_person_email")
-  collectionName     String   @map("collection_name")
-  productCode        String   @map("product_code")
-  width              Int
-  height             Int
-  thickness          Int
-  producer           String
-  color              String
-  finish             String
-  quantity           String
-  userAccountId      String   @map("user_account_id")
-  requestStatusId    Int      @map("request_status_id")
-  resolved           Boolean  @default(false)
+enum Unit {
+  m2
+  szt
+  komplet
+  mb
+}
 
-  requestTypes             TechnicalRequestRequestType[]
-  requestStatus            TechnicalRequestStatus        @relation(fields: [requestStatusId], references: [technicalRequestStatusId])
-  userAccount              UserAccount                   @relation(fields: [userAccountId], references: [userId])
-  assignees                TechnicalRequestUser[]
-  TechnicalRequestResponse TechnicalRequestResponse[]
+model TechnicalRequest {
+  // idiki
+  technicalRequestId         String                        @id @default(uuid()) @map("technical_request_id")
+  userAccountId              String                        @map("user_account_id")
+  requestStatusId            Int                           @map("request_status_id")
+  // domena
+  additionalInfo             String?                       @map("additional_info") @db.VarChar(3000)
+  productCategory            String?                       @map("product_category")
+  contactPerson              String?                       @map("contact_person")
+  contactPersonPhone         String                        @map("contact_person_phone")
+  contactPersonEmail         String                        @map("contact_person_email")
+  collectionName             String                        @map("collection_name")
+  productCode                String?                       @map("product_code")
+  format                     String
+  producer                   String
+  color                      String
+  finish                     String?
+  quantity                   String
+  unit                       Unit                          @default(m2)
+  // daty 
+  resolved                   Boolean                       @default(false)
+  resolvedAt                 DateTime?                     @map("resolved_at")
+  expiresAt                  DateTime?                     @map("expires_at")
+  createdAt                  DateTime                      @default(now()) @map("created_at")
+  updatedAt                  DateTime                      @updatedAt @map("updated_at")
+  // Relacje
+  requestTypes               TechnicalRequestRequestType[]
+  requestStatus              TechnicalRequestStatus        @relation(fields: [requestStatusId], references: [technicalRequestStatusId], onDelete: Cascade)
+  assignees                  TechnicalRequestUser[]
+  technicalRequestResponse   TechnicalRequestResponse?
+  technicalRequestResolvedBy TechnicalRequestResolvedBy?
+  userAccount                UserAccount?                  @relation(fields: [userAccountId], references: [userId])
+  technicalRequestFiles      TechnicalRequestFiles[]
 
   @@map("technical_request")
+}
+
+model TechnicalRequestFiles {
+  gcsId   String @id @unique @map("gcs_id")
+  fileUrl String
+
+  technicalRequestId String?           @map("technical_request_id")
+  technicalRequest   TechnicalRequest? @relation(fields: [technicalRequestId], references: [technicalRequestId])
+
+  @@map("technical_request_files")
 }
 
 model TechnicalRequestUser {
@@ -247,7 +314,7 @@ model TechnicalRequestUser {
   technicalRequestId String @map("technical_request_id")
 
   userAccount      UserAccount      @relation(fields: [userAccountId], references: [userId])
-  technicalRequest TechnicalRequest @relation(fields: [technicalRequestId], references: [technicalRequestId])
+  technicalRequest TechnicalRequest @relation(fields: [technicalRequestId], references: [technicalRequestId], onDelete: Cascade)
 
   @@id([userAccountId, technicalRequestId])
   @@map("assignee")
@@ -265,7 +332,7 @@ model TechnicalRequestRequestType {
   technicalRequestId     String @map("technical_request_id")
   technicalRequestTypeId Int    @map("technical_request_type_id")
 
-  technicalRequest     TechnicalRequest     @relation(fields: [technicalRequestId], references: [technicalRequestId])
+  technicalRequest     TechnicalRequest     @relation(fields: [technicalRequestId], references: [technicalRequestId], onDelete: Cascade)
   technicalRequestType TechnicalRequestType @relation(fields: [technicalRequestTypeId], references: [typeId])
 
   @@id([technicalRequestId, technicalRequestTypeId])
@@ -280,6 +347,14 @@ model TechnicalRequestStatus {
   @@map("request_status")
 }
 
+model TechnicalRequestResolvedBy {
+  userAccountId      String @map("user_account_id")
+  technicalRequestId String @unique @map("technical_request_id")
+
+  userAccount      UserAccount      @relation(fields: [userAccountId], references: [userId])
+  technicalRequest TechnicalRequest @relation(fields: [technicalRequestId], references: [technicalRequestId], onDelete: Cascade)
+}
+
 //
 
 model TechnicalRequestResponse {
@@ -287,7 +362,7 @@ model TechnicalRequestResponse {
   technicalResponseText  String   @map("technical_response_text")
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt              DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
-  availablity            String?
+  availability           String?
   technicalDocumentation String?  @map("technical_documentation")
   purchasePrice          String?  @map("purchase_price")
   price                  String?
@@ -295,9 +370,43 @@ model TechnicalRequestResponse {
   productionDate         String?  @map("production_date")
 
   userAccountId      String
-  userAccount        UserAccount      @relation(fields: [userAccountId], references: [userId])
-  technicalRequestId String
-  technicalRequest   TechnicalRequest @relation(fields: [technicalRequestId], references: [technicalRequestId])
+  resolvedBy         UserAccount      @relation(fields: [userAccountId], references: [userId], onDelete: Cascade)
+  technicalRequestId String           @unique
+  technicalRequest   TechnicalRequest @relation(fields: [technicalRequestId], references: [technicalRequestId], onDelete: Cascade)
 
   @@map("technical_request_response")
 }
+
+model Offers {
+  offerId     String @id @default(uuid()) @map("offer_id")
+  createdById String @map("created_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  createdBy                        UserAccount      @relation(fields: [createdById], references: [userId], onDelete: Cascade)
+  offerItems                       OfferItem[]
+  UploadedProduct                  UploadedProduct? @relation(fields: [uploadedProductUploadedProductId], references: [uploadedProductId])
+  uploadedProductUploadedProductId String?
+
+  @@map("offers")
+}
+
+model OfferItem {
+  offerItemId String @id @default(uuid()) @map("offer_item_id")
+  offerId     String @map("offer_id")
+  productId   String @map("product_id")
+
+  product UploadedProduct @relation(fields: [productId], references: [uploadedProductId], onDelete: Cascade, onUpdate: Cascade)
+  offer   Offers          @relation(fields: [offerId], references: [offerId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("offer_item")
+}
+
+// model Offers_Products {
+//   productId String
+//   offerId   String @map("offer_id")
+
+//   @@id([productId, offerId])
+//   @@map("offers_products")
+// }
