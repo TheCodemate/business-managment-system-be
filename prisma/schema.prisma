@@ -380,6 +380,8 @@ model TechnicalRequestResponse {
 model Offers {
   offerId     String @id @default(uuid()) @map("offer_id")
   createdById String @map("created_by_id")
+  offerTitle  String @map("offer_title")
+  offerNote   String @map("offer_note")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamp(6)

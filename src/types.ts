@@ -118,25 +118,20 @@ export const technicalRequestRequestSchema = z.object({
   requestTypes: z.array(
     z.enum([
       "price",
-      "priceNet",
+      "purchasePrice",
       "availability",
       "productionDate",
       "substitute",
       "technicalDocumentation",
     ])
   ),
-  productCode: z
-    .string()
-    .min(1, { message: "Kod produktu jest wymagane" })
-    .max(50),
+  productCode: z.string().optional(),
   collectionName: z
     .string()
-    .min(1, { message: "Nazwa produktu jest wymagana" })
+    .min(1, { message: "Nie wybrano produktu" })
     .max(50),
-  width: z.number(),
-  height: z.number(),
-  thickness: z.number(),
-  finish: z.string(),
+  format: z.string(),
+  finish: z.string().optional(),
   producer: z.string().min(1, { message: "Producent jest wymagany" }).max(50),
   color: z.string().min(1, { message: "Kolor jest wymagany" }).max(50),
   productCategory: z.enum([
@@ -146,36 +141,39 @@ export const technicalRequestRequestSchema = z.object({
     "furniture",
     "lightning",
   ]),
-  quantity: z.string(),
+  quantity: z
+    .string()
+    .min(1, { message: "Ilość jest wymagana" })
+    .refine((val) => /^\d+(?:[.,]\d{1,2})?$/.test(val), {
+      message:
+        "Wartość niepoprawna. Spróbuj jeden z podanych zapisów: 15,12|15|15.12|15,1|15.1; ",
+    }),
   additionalInfo: z.string(),
-  contactPerson: z.string().optional(),
+  contactPerson: z
+    .string()
+    .max(100, { message: "To pole nie powinno być dłuzsze niz 100 znaków" })
+    .optional(),
   contactPersonEmail: z
     .string()
-    .min(1, { message: "Producent jest wymagany" })
-    .max(50)
-    .optional(),
+    .min(1, { message: "Musisz wprowadzić email kontaktowy" })
+    .max(300)
+    .refine(
+      (val) => {
+        const flags = "gm";
+        const pattern = "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+.[A-Za-z]{2,}";
+        const regexPattern = new RegExp(pattern, flags);
+
+        return val.match(regexPattern);
+      },
+      { message: "Niewłaściwy email. Sprawdź czy wpisałeś poprawnie" }
+    ),
   contactPersonPhone: z
     .string()
-    .min(1, { message: "Producent jest wymagany" })
-    .max(50)
+    .min(1, { message: "Numer telefonu musi zawierać conajmniej 9 znaków" })
+    .max(12, { message: "Number telefonu nie moze być dłuzszy niz 12 znaków" })
     .optional(),
   files: z.string().optional(),
-  // highPriority: z.boolean(),
-  // status: z.enum(["notAssigned", "inProgress", "expired", "resolved"]),
-  // assignedTo: z.array(
-  //   z.object({
-  //     firstName: z.string(),
-  //     lastName: z.string(),
-  //     store: z.string(),
-  //     department: z.string(),
-  //   })
-  // ),
-  // requestedBy: z.object({
-  //   firstName: z.string(),
-  //   lastName: z.string(),
-  //   store: z.string(),
-  //   department: z.enum(["sales", "technicalSupport"]),
-  // }),
+  unit: z.enum(["szt", "m2", "komplet", "mb"]),
 });
 
 export const technicalRequestTypeSchema = z.array(
@@ -208,9 +206,7 @@ export const technicalRequestResponseSchema = z.object({
     .string()
     .min(1, { message: "Nazwa produktu jest wymagana" })
     .max(50),
-  width: z.string(),
-  height: z.string(),
-  thickness: z.string(),
+  format: z.string(),
   finish: z.string(),
   producer: z.string().min(1, { message: "Producent jest wymagany" }).max(50),
   color: z.string().min(1, { message: "Kolor jest wymagany" }).max(50),
@@ -253,6 +249,23 @@ export const technicalRequestResponseSchema = z.object({
   ),
 });
 
+export const formatedBodySchema = z.object({
+  collectionName: z.string(),
+  productName: z.string(),
+  eanCode: z.number(),
+  productCode: z.string(),
+  finish: z.string().optional(),
+  format: z.string(),
+  weight: z.number(),
+  M2xPKG: z.number(),
+  PCxPKG: z.number(),
+  M2xPLT: z.number(),
+  unit: z.string(),
+  color: z.string(),
+  producer: z.string(),
+  category: z.string(),
+});
+
 // Generate types
 export type ShippingAddressRequestType = z.infer<
   typeof shippingAddressRequestSchema
@@ -270,3 +283,4 @@ export type TechnicalRequestRequestType = z.infer<
 export type TechnicalRequestResponseSchema = z.infer<
   typeof technicalRequestResponseSchema
 >;
+export type UploadedProductType = z.infer<typeof formatedBodySchema>;

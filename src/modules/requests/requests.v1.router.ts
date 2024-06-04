@@ -10,8 +10,8 @@ import {
   removeFile,
   unassignUserFromTechnicalRequest,
   uploadRequestFile,
-} from "./requests.controller";
-import { postTechnicalRequests } from "./requests.controller";
+} from "./requests.v1.controller";
+import { postTechnicalRequests } from "./requests.v1.controller";
 import { authenticateToken } from "../../middlewares/authenticateToken";
 import { MemberType } from "src/types";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
@@ -24,8 +24,9 @@ supportRequestRouter.post(
   authenticateToken,
   async (req: Request & { member: MemberType }, res: Response) => {
     try {
-      await postTechnicalRequests(
-        RequestDTO.fromBody({ ...req.body, memberId: req.member.user_id })
+      const response = await postTechnicalRequests(
+        req.member.user_id,
+        RequestDTO.fromBody(req.body)
       );
 
       return res.status(200).send({ message: "Request posted successfully" });
@@ -45,7 +46,6 @@ supportRequestRouter.post(
     }
   }
 );
-
 supportRequestRouter.post(
   "/upload-file",
   upload.single("uploadedFile"),

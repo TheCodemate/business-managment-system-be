@@ -158,9 +158,6 @@ export const loginMember = async (
       maxAge: 3600000,
     });
 
-    console.log("authToken: ", token);
-    console.log("userToLogin: ", userToLogin);
-
     return res.status(201).send({
       isAuth: true,
       user: {
@@ -369,6 +366,8 @@ export const getMembers = async (req: Request, res: Response) => {
       select: {
         email: true,
         userId: true,
+        firstName: true,
+        lastName: true,
       },
     });
 

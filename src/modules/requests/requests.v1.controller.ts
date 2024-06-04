@@ -1,13 +1,11 @@
+import { prisma } from "../../prisma";
 import path from "node:path";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { Request, Response } from "express";
 import { Storage } from "@google-cloud/storage";
 import multer from "multer";
 import { getExpirationTimePeriod } from "../../utils/getExpiratoinTimePeriod";
 import process from "node:process";
-import { PrismaClient } from "@prisma/client";
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
-import { prisma } from "../../prisma";
-import { TechnicalRequestRequestType } from "src/types";
 
 const googleStorage = new Storage({
   keyFilename: path.join(
@@ -42,7 +40,6 @@ export class RequestDTO {
   finish: string = "";
   unit: Units = "szt";
   uploadedFiles: { fileUrl: string; fileId: string }[] = [];
-  memberId: string = "";
 
   static fromBody(body: Record<string, any>) {
     const newRequest = new RequestDTO();
@@ -62,21 +59,22 @@ export class RequestDTO {
     newRequest.quantity = body.quantity;
     newRequest.unit = body.unit;
     newRequest.uploadedFiles = body.uploadedFiles;
-    newRequest.memberId = body.memberId;
     return newRequest;
   }
 }
-
 const requestFilesBucket = googleStorage.bucket("bms-request_files_bucket");
 
-export const postTechnicalRequests = async (body: RequestDTO) => {
+export const postTechnicalRequests = async (
+  memberId: string,
+  body: RequestDTO
+) => {
   const availableRequestTypes = await prisma.technicalRequestType.findMany({
     where: {
       typeName: { in: body.requestTypes },
     },
   });
 
-  await prisma.technicalRequest.create({
+  const technicalRequestCreated = await prisma.technicalRequest.create({
     data: {
       productCategory: body.productCategory,
       additionalInfo: body.additionalInfo,
@@ -91,7 +89,7 @@ export const postTechnicalRequests = async (body: RequestDTO) => {
       quantity: body.quantity,
       finish: body.finish,
       unit: body.unit,
-      userAccountId: body.memberId,
+      userAccountId: memberId,
       requestStatusId: 1,
       expiresAt: new Date(
         new Date().getTime() + getExpirationTimePeriod(body.requestTypes)
@@ -112,12 +110,15 @@ export const postTechnicalRequests = async (body: RequestDTO) => {
         })),
       },
     },
+    include: {
+      technicalRequestFiles: true,
+    },
   });
 };
 
 export const getUploadedFiles = async (req: Request, res: Response) => {
   try {
-    const files = await prisma.technicalRequestFiles.findMany({
+    const files = prisma.technicalRequestFiles.findMany({
       where: {
         technicalRequestId: req.body.technicalRequestId,
       },
@@ -177,6 +178,7 @@ export const uploadRequestFile = async (req: Request, res: Response) => {
 export const removeFile = async (req: Request, res: Response) => {
   try {
     const { fileId } = req.query;
+    console.log("fileId not available: ", fileId);
     if (!fileId)
       return res.status(422).send({
         message: "No photos have been uploaded. Choose files and try again.",
