@@ -19,19 +19,19 @@ export const registerMember = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const activationToken = crypto.randomBytes(48).toString("hex");
     const activationLink = `http://localhost:${process.env.DEV_PORT}/api/members/activate/${activationToken}`;
-    const userToRegister = await prisma.user_account.findUnique({
+    const userToRegister = await prisma.userAccount.findUnique({
       where: {
         email: email,
       },
     });
 
     if (!userToRegister) {
-      await prisma.user_account.create({
+      await prisma.userAccount.create({
         data: {
           email: email,
           password: hashedPassword,
-          activate_token_expire_date: new Date().getTime() + 24 * 3600 * 1000,
-          activate_token: activationToken,
+          activateTokenExpireDate: new Date().getTime() + 24 * 3600 * 1000,
+          activeToken: activationToken,
         },
       });
 
@@ -50,7 +50,7 @@ export const registerMember = async (req: Request, res: Response) => {
     }
 
     const isActivateLinkExpired =
-      Number(userToRegister.activate_token_expire_date) < new Date().getTime();
+      Number(userToRegister.activateTokenExpireDate) < new Date().getTime();
 
     if (!userToRegister.active && isActivateLinkExpired) {
       return res
@@ -81,9 +81,9 @@ export const registerMember = async (req: Request, res: Response) => {
 export const activateMember = async (req: Request, res: Response) => {
   try {
     const { activationToken } = req.params;
-    const userToActivate = await prisma.user_account.findUnique({
+    const userToActivate = await prisma.userAccount.findUnique({
       where: {
-        activate_token: activationToken,
+        activeToken: activationToken,
       },
     });
 
@@ -95,9 +95,9 @@ export const activateMember = async (req: Request, res: Response) => {
         );
     }
 
-    await prisma.user_account.update({
+    await prisma.userAccount.update({
       where: {
-        activate_token: activationToken,
+        activeToken: activationToken,
       },
       data: {
         active: true,
@@ -125,7 +125,7 @@ export const loginMember = async (
   const { email, password } = req.body;
 
   try {
-    const userToLogin = await prisma.user_account.findUnique({
+    const userToLogin = await prisma.userAccount.findUnique({
       where: {
         email: email,
       },
@@ -149,22 +149,19 @@ export const loginMember = async (
     }
 
     const token = createJWToken({
-      user_id: userToLogin.user_id,
+      user_id: userToLogin.userId,
       email: userToLogin.email,
     });
 
     res.cookie("authToken", token, {
       httpOnly: true,
-      // domain: "localhost",
-      // secure: false,
-      // sameSite: "none",
       maxAge: 3600000,
     });
 
     return res.status(201).send({
       isAuth: true,
       user: {
-        id: userToLogin.user_id,
+        id: userToLogin.userId,
         email: userToLogin.email,
       },
     });
@@ -192,6 +189,8 @@ export const authenticateMember = async (req: Request, res: Response) => {
     if (!req.member) {
       return res.send(403).send("No user found. Check the credentials ");
     }
+
+    console.log("user authenticated");
 
     return res.status(200).send({
       isAuth: true,
@@ -240,7 +239,7 @@ export const resetPasswordRequest = async (req: Request, res: Response) => {
     const resetPassToken = crypto.createHash("sha512").digest("hex");
     const resetLink = `http://localhost:5173/reset-password/${resetPassToken}`;
 
-    const userRequestingPasswordReset = await prisma.user_account.findUnique({
+    const userRequestingPasswordReset = await prisma.userAccount.findUnique({
       where: {
         email: email,
       },
@@ -252,7 +251,7 @@ export const resetPasswordRequest = async (req: Request, res: Response) => {
 
     const resetTokenExists = await prisma.resetToken.findUnique({
       where: {
-        user_id: userRequestingPasswordReset.user_id,
+        userId: userRequestingPasswordReset.userId,
       },
     });
 
@@ -266,8 +265,8 @@ export const resetPasswordRequest = async (req: Request, res: Response) => {
     await prisma.resetToken.create({
       data: {
         token: resetPassToken,
-        token_expire_date: new Date().getTime() + 24 * 3600 * 1000,
-        user_id: userRequestingPasswordReset.user_id,
+        tokenExpireDate: new Date().getTime() + 24 * 3600 * 1000,
+        userId: userRequestingPasswordReset.userId,
       },
     });
 
@@ -316,9 +315,9 @@ export const resetPassword = async (req: Request, res: Response) => {
       });
     }
 
-    const userRequestingPasswordReset = await prisma.user_account.findUnique({
+    const userRequestingPasswordReset = await prisma.userAccount.findUnique({
       where: {
-        user_id: token?.user_id,
+        userId: token?.userId,
       },
     });
 
@@ -329,9 +328,9 @@ export const resetPassword = async (req: Request, res: Response) => {
       });
     }
 
-    const resetPassword = await prisma.user_account.update({
+    const resetPassword = await prisma.userAccount.update({
       where: {
-        user_id: userRequestingPasswordReset.user_id,
+        userId: userRequestingPasswordReset.userId,
       },
       data: {
         password: hashedPassword,
@@ -340,11 +339,39 @@ export const resetPassword = async (req: Request, res: Response) => {
 
     await prisma.resetToken.delete({
       where: {
-        user_id: resetPassword.user_id,
+        userId: resetPassword.userId,
       },
     });
 
     return res.status(201).send({ message: "Password was reset. Login now" });
+  } catch (error) {
+    if (error instanceof PrismaClientKnownRequestError) {
+      return res.status(409).send(error.message);
+    }
+
+    if (error instanceof Error) {
+      return res.status(404).send(error.message);
+    }
+
+    return res.status(404).send({
+      message:
+        "Could not get requested resources. Some unknown error has occurred",
+    });
+  }
+};
+
+export const getMembers = async (req: Request, res: Response) => {
+  try {
+    const data = await prisma.userAccount.findMany({
+      select: {
+        email: true,
+        userId: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
+
+    return res.status(200).send(data);
   } catch (error) {
     if (error instanceof PrismaClientKnownRequestError) {
       return res.status(409).send(error.message);

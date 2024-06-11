@@ -1,12 +1,9 @@
 {
-  // "ts-node": {
-  // "files": true
-  // },
   "compilerOptions": {
     "target": "es2016",
-    "module": "Node16",
+    "module": "NodeNext",
     "rootDir": "./",
-    "moduleResolution": "Node16",
+    "moduleResolution": "NodeNext",
     "baseUrl": "./",
     "typeRoots": ["./node_modules/@types"],
     "outDir": "./dist",

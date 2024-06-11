@@ -7,110 +7,408 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model contact_person {
-  contact_person_id String  @id @default(uuid())
-  first_name        String
-  last_name         String
-  phone_number      String?
+// model ProductCategory {
+//   id           Int          @id @default(autoincrement())
+//   categoryName String
+//   PrdocutNew   PrdocutNew[]
+
+//   @@map("product_category")
+// }
+
+model ContactPerson {
+  contactPersonId String @id @default(uuid()) @map("contact_person_id")
+  firstName       String @map("first_name")
+  lastName        String @map("last_name")
+  phoneNumber     String @map("phone_number")
+  email           String
+
+  customer   Customer @relation(fields: [customerId], references: [customerId])
+  customerId String   @unique @map("customer_id")
+
+  @@map("contact_person")
+}
+
+// model PrdocutNew {
+//   id                String          @id @default(uuid())
+//   description       String
+//   productCode       String          @map("product_code")
+//   collectionName    String          @map("collection_name")
+//   productCategoryId String
+//   productCategory   ProductCategory @relation(references: [id], fields: [productCategoryId])
+
+//   @@map("product_new")
+// }
+
+model Address {
+  addressId       String  @id @default(uuid()) @map("address_id")
+  street          String
+  streetNumber    String  @map("street_number")
+  apartmentNumber String? @map("apartment_number")
+  city            String
+  postalCode      String  @map("postal_code")
+  post            String
+  country         String
+
+  customerId String   @unique @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [customerId])
+
+  @@map("address")
+}
+
+model Customer {
+  customerId    String         @id @default(uuid()) @map("customer_id")
+  companyName   String         @map("company_name") @db.VarChar(255)
+  shortName     String         @map("short_name") @db.VarChar(50)
+  vatNo         String         @unique @map("vat_no") @db.VarChar(12)
+  address       Address?
+  contactPerson ContactPerson?
+  note          String?
+  paymentTerm   String         @map("payment_term")
+  paymentType   String         @map("payment_type")
+  isCompany     Boolean        @map("is_company")
+
+  @@map("customer")
+}
+
+model UserAccount {
+  userId                   String                       @id @default(uuid()) @map("user_id")
+  email                    String                       @unique @db.VarChar(50)
+  phone                    String?
+  firstName                String?                      @map("first_name")
+  lastName                 String?                      @map("last_name")
+  password                 String                       @db.VarChar(255)
+  active                   Boolean                      @default(false)
+  activeToken              String                       @unique @map("activate_token") @db.VarChar(255)
+  activateTokenExpireDate  BigInt                       @map("activate_token_expire_date")
+  createdAt                DateTime                     @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt                DateTime                     @default(now()) @map("updated_at") @db.Timestamp(6)
+  role                     Role?                        @default(ADMIN)
+  resetTokens              ResetToken[]
+  shoppingCart             ShoppingCart?
+  orders                   OrderDetails[]
+  requestsAssignedTo       TechnicalRequestUser[]
+  technicalRequestResponse TechnicalRequestResponse[]
+  resolvedRequests         TechnicalRequestResolvedBy[]
+  createdRequests          TechnicalRequest[]
+  Offers                   Offers[]
+
+  @@map("user_account")
+}
+
+model UploadedProduct {
+  uploadedProductId String      @id @default(uuid()) @map("uploaded_product_id")
+  collectionName    String      @map("collection_name")
+  productName       String      @map("product_name")
+  eanCode           String?     @map("ean_code")
+  productCode       String?     @unique @map("product_code")
+  finish            String?
+  format            String
+  weight            Decimal?
+  M2xPKG            Decimal?    @map("m2_x_pkg")
+  PCxPKG            Decimal?    @map("pc_x_pkg")
+  M2xPLT            Decimal?    @map("m2_x_plt")
+  PCxPLT            Decimal?    @map("pc_x_plt")
+  unit              String?
+  color             String
+  producer          String
+  category          String
+  Offers            Offers[]
+  OfferItem         OfferItem[]
+}
+
+model Product {
+  productId              String     @id @default(uuid()) @map("product_id")
+  productName            String     @map("product_name")
+  productDescription     String     @map("product_description")
+  productCode            String     @map("product_code")
+  categories             String[]
+  price                  Decimal
+  stockAmount            Int        @map("stock_amount")
+  producer               String
+  brandName              String     @map("brand_name")
+  color                  String
+  package                Decimal
+  pallete                Decimal
+  sizeUnit               String     @map("size_unit")
+  height                 Int
+  width                  Int
+  thickness              Decimal
+  weight                 Decimal
+  weightUnit             String     @map("weight_unit")
+  material               String
+  finish                 String
+  slipResistanceDIN51097 String[]   @map("slip_resistance_DIN51097")
+  slipResistanceDIN51130 String     @map("slip_resistance_DIN51130")
+  createdAt              DateTime   @map("created_at")
+  updatedAt              DateTime   @map("updated_at")
+  isActive               Boolean    @map("is_active")
+  images                 String[]
+  cartItmes              CartItem?
+  orderItems             OrderItem?
+
+  @@map("product")
+}
+
+model ShoppingCart {
+  shoppingCartId String       @id @default(uuid()) @map("shopping_car_id")
+  userId         String       @unique @map("user_id")
+  user           UserAccount? @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+  cartItems      CartItem[]
+
+  @@map("shopping_cart")
+}
+
+model CartItem {
+  cartItemId     String   @id @default(uuid()) @map("cart_item_id")
+  shoppingCartId String   @map("shopping_cart_id")
+  productId      String   @unique @map("product_id")
+  quantity       Decimal
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  product      Product      @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: Cascade)
+  shoppingCart ShoppingCart @relation(fields: [shoppingCartId], references: [shoppingCartId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("cart_item")
+}
+
+model ShippingAddress {
+  shippingAddressId String            @id @default(uuid()) @map("shipping_address_id")
+  company           String
+  address           String
+  apartmentNumber   String?           @map("apartment_number")
+  country           String
+  city              String
+  postalCode        Int               @map("postal_code")
+  orderDetailsId    String            @unique @map("order_details_id")
+  orderDetails      OrderDetails?     @relation(fields: [orderDetailsId], references: [orderDetailsId])
+  shippingContact   ShippingContact[]
+
+  @@map("shipping_address")
+}
+
+model ShippingContact {
+  shippingContactId String          @id @default(uuid()) @map("shipping_contact_id")
+  firstName         String          @map("first_name")
+  lastName          String          @map("last_name")
+  phoneNumber       String          @map("phone_number")
   email             String
+  shippingAddressId String          @unique @map("shipping_address_id")
+  shippingAddress   ShippingAddress @relation(fields: [shippingAddressId], references: [shippingAddressId], onDelete: Cascade, onUpdate: Cascade)
 
-  customer    customer @relation(fields: [customer_id], references: [customer_id])
-  customer_id String   @unique
+  @@map("shipping_contact")
 }
 
-model address {
-  address_id       String  @id @default(uuid())
-  street           String
-  street_number    String
-  apartment_number String?
-  city             String
-  postal_code      String
-  post             String
-  country          String
+model OrderNote {
+  orderNoteIt    String        @id @default(uuid()) @map("order_note_id")
+  note           String        @db.VarChar(500)
+  orderDetailsId String        @unique @map("order_details_id")
+  orderDetails   OrderDetails? @relation(fields: [orderDetailsId], references: [orderDetailsId], onDelete: Cascade, onUpdate: Cascade)
 
-  customer_id String   @unique
-  customer    customer @relation(fields: [customer_id], references: [customer_id])
+  @@map("order_note")
 }
 
-model customer {
-  customer_id    String          @id @default(uuid())
-  company_name   String          @db.VarChar(255)
-  short_name     String          @db.VarChar(50)
-  vat_no         String          @unique @db.VarChar(12)
-  address        address?
-  contact_person contact_person?
-  note           String?
-  payment_term   String
-  payment_type   String
-  is_company     Boolean
+model OrderDetails {
+  orderDetailsId  String           @id @default(uuid()) @map("order_details_id")
+  isConfirmed     Boolean          @default(false) @map("is_confirmed")
+  shippingAddress ShippingAddress?
+  orderNote       OrderNote?
+  userAccountId   String           @unique @map("user_account_id")
+  userAccount     UserAccount      @relation(fields: [userAccountId], references: [userId], onDelete: NoAction, onUpdate: NoAction)
+  orderItems      OrderItem[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  @@map("order_details")
 }
 
-model user_account {
-  user_id                    String         @id @default(uuid())
-  email                      String         @unique @db.VarChar(50)
-  password                   String         @db.VarChar(255)
-  active                     Boolean        @default(false)
-  activate_token             String         @unique @db.VarChar(255)
-  activate_token_expire_date BigInt
-  created_at                 DateTime       @default(now()) @db.Timestamp(6)
-  updated_at                 DateTime       @default(now()) @db.Timestamp(6)
-  resetTokens                ResetToken[]
-  shopping_cart              shopping_cart?
-}
+model OrderItem {
+  orderItemId    String   @id @default(uuid()) @map("order_item_id")
+  productId      String   @unique @map("product_id")
+  orderDetailsId String   @map("order_details_id")
+  quantity       Decimal
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
 
-model product {
-  product_id               String     @id @default(uuid())
-  product_name             String
-  product_description      String
-  product_code             String
-  categories               String[]
-  price                    Decimal
-  stock_amount             Int
-  producer                 String
-  brand_name               String
-  color                    String
-  package                  Decimal
-  pallete                  Decimal
-  size_unit                String
-  height                   Int
-  width                    Int
-  thickness                Decimal
-  weight                   Decimal
-  weight_unit              String
-  material                 String
-  finish                   String
-  slip_resistance_DIN51097 String[]
-  slip_resistance_DIN51130 String
-  created_date             DateTime
-  updated_date             DateTime
-  is_active                Boolean
-  images                   String[]
-  cart_item                cart_item?
-}
+  product Product       @relation(fields: [productId], references: [productId], onDelete: Cascade, onUpdate: Cascade)
+  order   OrderDetails? @relation(fields: [orderDetailsId], references: [orderDetailsId], onDelete: Cascade, onUpdate: Cascade)
 
-model shopping_cart {
-  shopping_cart_id String        @id @default(uuid())
-  user_id          String        @unique
-  user             user_account? @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
-  cart_items       cart_item[]
-}
-
-model cart_item {
-  cart_item_id     String   @id @default(uuid())
-  shopping_cart_id String
-  product_id       String   @unique
-  quantity         Decimal
-  created_at       DateTime @default(now()) @db.Timestamp(6)
-  updated_at       DateTime @default(now()) @db.Timestamp(6)
-
-  product       product       @relation(fields: [product_id], references: [product_id], onDelete: Cascade, onUpdate: Cascade)
-  shopping_cart shopping_cart @relation(fields: [shopping_cart_id], references: [shopping_cart_id], onDelete: Cascade, onUpdate: Cascade)
+  @@map("order_item")
 }
 
 model ResetToken {
-  reset_token_id    String        @id @default(uuid())
-  token             String        @unique @db.VarChar(255)
-  token_expire_date BigInt
-  user_id           String        @unique
-  user              user_account? @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
+  resetTokenId    String       @id @default(uuid()) @map("reset_token_id")
+  token           String       @unique @db.VarChar(255)
+  tokenExpireDate BigInt       @map("token_expire_date")
+  userId          String       @unique @map("user_id")
+  user            UserAccount? @relation(fields: [userId], references: [userId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("reset_token")
 }
+
+enum Role {
+  ADMIN
+  LOGISTIC
+  SALES
+  B2B_CLIENT
+  REGULAR_CLIENT
+}
+
+enum Unit {
+  m2
+  szt
+  komplet
+  mb
+}
+
+model TechnicalRequest {
+  // idiki
+  technicalRequestId         String                        @id @default(uuid()) @map("technical_request_id")
+  userAccountId              String                        @map("user_account_id")
+  requestStatusId            Int                           @map("request_status_id")
+  // domena
+  additionalInfo             String?                       @map("additional_info") @db.VarChar(3000)
+  productCategory            String?                       @map("product_category")
+  contactPerson              String?                       @map("contact_person")
+  contactPersonPhone         String                        @map("contact_person_phone")
+  contactPersonEmail         String                        @map("contact_person_email")
+  collectionName             String                        @map("collection_name")
+  productCode                String?                       @map("product_code")
+  format                     String
+  producer                   String
+  color                      String
+  finish                     String?
+  quantity                   String
+  unit                       Unit                          @default(m2)
+  // daty 
+  resolved                   Boolean                       @default(false)
+  resolvedAt                 DateTime?                     @map("resolved_at")
+  expiresAt                  DateTime?                     @map("expires_at")
+  createdAt                  DateTime                      @default(now()) @map("created_at")
+  updatedAt                  DateTime                      @updatedAt @map("updated_at")
+  // Relacje
+  requestTypes               TechnicalRequestRequestType[]
+  requestStatus              TechnicalRequestStatus        @relation(fields: [requestStatusId], references: [technicalRequestStatusId], onDelete: Cascade)
+  assignees                  TechnicalRequestUser[]
+  technicalRequestResponse   TechnicalRequestResponse?
+  technicalRequestResolvedBy TechnicalRequestResolvedBy?
+  userAccount                UserAccount?                  @relation(fields: [userAccountId], references: [userId])
+  technicalRequestFiles      TechnicalRequestFiles[]
+
+  @@map("technical_request")
+}
+
+model TechnicalRequestFiles {
+  gcsId   String @id @unique @map("gcs_id")
+  fileUrl String
+
+  technicalRequestId String?           @map("technical_request_id")
+  technicalRequest   TechnicalRequest? @relation(fields: [technicalRequestId], references: [technicalRequestId])
+
+  @@map("technical_request_files")
+}
+
+model TechnicalRequestUser {
+  userAccountId      String @map("user_account_id")
+  technicalRequestId String @map("technical_request_id")
+
+  userAccount      UserAccount      @relation(fields: [userAccountId], references: [userId])
+  technicalRequest TechnicalRequest @relation(fields: [technicalRequestId], references: [technicalRequestId], onDelete: Cascade)
+
+  @@id([userAccountId, technicalRequestId])
+  @@map("assignee")
+}
+
+model TechnicalRequestType {
+  typeId           Int                           @id @map("technical_request_type_id")
+  typeName         String                        @map("type_name")
+  technicalRequest TechnicalRequestRequestType[]
+
+  @@map("request_type")
+}
+
+model TechnicalRequestRequestType {
+  technicalRequestId     String @map("technical_request_id")
+  technicalRequestTypeId Int    @map("technical_request_type_id")
+
+  technicalRequest     TechnicalRequest     @relation(fields: [technicalRequestId], references: [technicalRequestId], onDelete: Cascade)
+  technicalRequestType TechnicalRequestType @relation(fields: [technicalRequestTypeId], references: [typeId])
+
+  @@id([technicalRequestId, technicalRequestTypeId])
+  @@map("technical_request_request_type")
+}
+
+model TechnicalRequestStatus {
+  technicalRequestStatusId   Int                @id @map("technical_request_status_id")
+  technicalRequestStatusName String             @map("technical_request_status_name")
+  technicalRequest           TechnicalRequest[]
+
+  @@map("request_status")
+}
+
+model TechnicalRequestResolvedBy {
+  userAccountId      String @map("user_account_id")
+  technicalRequestId String @unique @map("technical_request_id")
+
+  userAccount      UserAccount      @relation(fields: [userAccountId], references: [userId])
+  technicalRequest TechnicalRequest @relation(fields: [technicalRequestId], references: [technicalRequestId], onDelete: Cascade)
+}
+
+//
+
+model TechnicalRequestResponse {
+  technicalResponseId    String   @id @default(uuid()) @map("technical_response_id")
+  technicalResponseText  String   @map("technical_response_text")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt              DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
+  availability           String?
+  technicalDocumentation String?  @map("technical_documentation")
+  purchasePrice          String?  @map("purchase_price")
+  price                  String?
+  substitute             String?
+  productionDate         String?  @map("production_date")
+
+  userAccountId      String
+  resolvedBy         UserAccount      @relation(fields: [userAccountId], references: [userId], onDelete: Cascade)
+  technicalRequestId String           @unique
+  technicalRequest   TechnicalRequest @relation(fields: [technicalRequestId], references: [technicalRequestId], onDelete: Cascade)
+
+  @@map("technical_request_response")
+}
+
+model Offers {
+  offerId     String @id @default(uuid()) @map("offer_id")
+  createdById String @map("created_by_id")
+  offerTitle  String @map("offer_title")
+  offerNote   String @map("offer_note")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  createdBy                        UserAccount      @relation(fields: [createdById], references: [userId], onDelete: Cascade)
+  offerItems                       OfferItem[]
+  UploadedProduct                  UploadedProduct? @relation(fields: [uploadedProductUploadedProductId], references: [uploadedProductId])
+  uploadedProductUploadedProductId String?
+
+  @@map("offers")
+}
+
+model OfferItem {
+  offerItemId String @id @default(uuid()) @map("offer_item_id")
+  offerId     String @map("offer_id")
+  productId   String @map("product_id")
+
+  product UploadedProduct @relation(fields: [productId], references: [uploadedProductId], onDelete: Cascade, onUpdate: Cascade)
+  offer   Offers          @relation(fields: [offerId], references: [offerId], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("offer_item")
+}
+
+// model Offers_Products {
+//   productId String
+//   offerId   String @map("offer_id")
+
+//   @@id([productId, offerId])
+//   @@map("offers_products")
+// }

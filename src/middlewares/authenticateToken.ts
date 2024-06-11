@@ -8,7 +8,7 @@ import { MemberType } from "../types";
 declare global {
   namespace Express {
     export interface Request {
-      member: MemberType | undefined;
+      member: MemberType;
       accessToken: string;
     }
   }

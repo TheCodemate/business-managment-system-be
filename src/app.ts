@@ -6,14 +6,16 @@ import { membersRouter } from "./modules/members/members.router";
 import { customersRouter } from "./modules/customers/customers.router";
 import { shoppingCartRouter } from "./modules/shoppingCart/shoppingCart.router";
 import { productsRouter } from "./modules/products/products.router";
+import { ordersRouter } from "./modules/orders/orders.router";
+import { supportRequestRouter } from "./modules/requests/requests.v1.router";
+import { offerRouter } from "./modules/offer/offer.router";
 
 dotenv.config();
 
-const app: Express = express();
-const port = process.env.DEV_PORT || 3000;
+export const app: Express = express();
 
 app.use(helmet());
-app.use(express.json());
+app.use(express.json({ limit: "100mb" }));
 app.use(cookieParser());
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -33,7 +35,6 @@ app.use("/api/customers", customersRouter);
 app.use("/api/members", membersRouter);
 app.use("/api/shopping-cart", shoppingCartRouter);
 app.use("/api/products", productsRouter);
-
-app.listen(port, () => {
-  console.log(`⚡️[server]: Server is running at http://localhost:${port}`);
-});
+app.use("/api/orders", ordersRouter);
+app.use("/api/support-requests", supportRequestRouter);
+app.use("/api/offer", offerRouter);
