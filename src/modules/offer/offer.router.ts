@@ -5,7 +5,7 @@ import {
   deleteOfferProductById,
   getOfferNoteById,
   getOfferProducts,
-  getOffers,
+  getOffersHandler,
   removeOfferById,
   updateOfferById,
   updateOfferNote,
@@ -16,7 +16,7 @@ export const offerRouter = express.Router();
 
 offerRouter.post("/", addOffer);
 // offerRouter.post("/", authenticateToken, createOffer);
-offerRouter.get("/", getOffers);
+offerRouter.get("/", getOffersHandler);
 // offerRouter.get("/", authenticateToken, getOffers);
 offerRouter.put("/", updateOfferById);
 // offerRouter.put("/", authenticateToken, updateOffer);

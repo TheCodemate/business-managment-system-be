@@ -12,8 +12,7 @@ import { offerRouter } from "./modules/offer/offer.router";
 
 dotenv.config();
 
-const app: Express = express();
-const port = process.env.DEV_PORT || 3000;
+export const app: Express = express();
 
 app.use(helmet());
 app.use(express.json({ limit: "100mb" }));
@@ -39,7 +38,3 @@ app.use("/api/products", productsRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/support-requests", supportRequestRouter);
 app.use("/api/offer", offerRouter);
-
-app.listen(port, () => {
-  console.log(`⚡️[server]: Server is running at http://localhost:${port}`);
-});

@@ -1,6 +1,7 @@
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { Request, Response } from "express";
 import { prisma } from "../../prisma";
+import { PrismaClient } from "@prisma/client";
 
 export const addOffer = async (
   req: Request<{}, { userId: string; offerTitle: string }>,
@@ -36,16 +37,45 @@ export const addOffer = async (
     });
   }
 };
-export const getOffers = async (req: Request, res: Response) => {
+
+export const getOffers = (db: PrismaClient) => {
+  return db.offers.findMany({
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+};
+
+const offer = (db: PrismaClient) => {
+  return {
+    get: () => getOffers(db),
+  };
+};
+
+class OfferRepository {
+  #db;
+
+  constructor(db: PrismaClient) {
+    this.#db = db;
+  }
+
+  get() {
+    return this.#db.offers.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  }
+}
+
+const offerRepo = new OfferRepository(prisma);
+// const offerRepo = offer(prisma)
+
+export const getOffersHandler = async (req: Request, res: Response) => {
   try {
-    const offers = await prisma.offers.findMany();
+    const offers = await offerRepo.get();
 
-    const sortedOffers = offers.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-
-    return res.status(200).send(sortedOffers);
+    return res.status(200).send(offers);
   } catch (error) {
     if (error instanceof PrismaClientKnownRequestError) {
       return res.status(409).send(error.message);
